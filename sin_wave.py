@@ -96,6 +96,11 @@ early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
 
 
 
+
+
+
+
+
 # 学習させる
 
 
