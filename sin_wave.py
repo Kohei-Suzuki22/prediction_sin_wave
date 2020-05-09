@@ -46,7 +46,7 @@ def show_sin_wave(x,y):   # xとyはそれぞれ配列。サイズを揃える�
 
 
 
-l = 25      # 過去のデータを考慮する数。
+l = 100      # 過去のデータを考慮する数。
 
 # y[i-25:i]をモデルに入力し、y[i]を学習させる。
 def make_dataset(y, l):
@@ -65,7 +65,6 @@ def make_dataset(y, l):
 data = np.array(data).reshape(-1, l, 1) # -1は他の次元の指定より適切なサイズを決定してくれる。
 # dataの変換: [[0,1,2,・・・,24],[1,2,・・,25],・・] → [ [ [0],[1],[2],・・[24] ] , [ [1],[2],[3],・・,[25] ] ]
 # print(data.shape):  (175,25,1)
-
 
 
 
@@ -164,102 +163,121 @@ pred = model.predict(data)
 
 # グラフ表示
 
-plt.figure(figsize=(20, 4)) # figsize:  図のサイズを指定。
-plt.subplot(1, 3, 1)  # 図中を (1 × 3)の大きさで分割。1番目の枠に表示。
-plt.plot(x, y, color='blue')  # 図を表示。
-plt.xlabel('x')               # 横軸名
-plt.ylabel('raw_data')        # 縦軸名
+# plt.figure(figsize=(20, 4)) # figsize:  図のサイズを指定。
+# plt.subplot(1, 3, 1)  # 図中を (1 × 3)の大きさで分割。1番目の枠に表示。
+# plt.plot(x, y, color='blue')  # 図を表示。
+# plt.xlabel('x')               # 横軸名
+# plt.ylabel('raw_data')        # 縦軸名
 
-plt.subplot(1, 3, 2)
-plt.xlim(-10, 210)            # x軸の表示範囲。
-plt.plot(x[l:], pred, color='red')
-plt.xlabel('x')
-plt.ylabel('pred')
+# plt.subplot(1, 3, 2)
+# plt.xlim(-10, 210)            # x軸の表示範囲。
+# plt.plot(x[l:], pred, color='red')
+# plt.xlabel('x')
+# plt.ylabel('pred')
 
-plt.subplot(1, 3, 3)
+# plt.subplot(1, 3, 3)
+# plt.plot(x, y, color='blue', label='raw_data')
+# plt.plot(x[l:], pred, color='red', label='pred')
+# plt.xlabel('x')
+# plt.legend(loc='lower left')  # 図のラベルの位置を指定。
+
+# plt.tight_layout()            #グラフの重なりを解消。
+# plt.show()
+
+
+
+
+
+
+
+# 今まで学習させてきた最後の要素からスタート。
+
+start = data[-1].reshape(1, l)[0]                   # [175,176,・・・・,200]  (25個の要素を持つnp.array)
+
+
+
+# print(model.predict(start[-l:].reshape(1,l,1)))
+
+for _ in range(800):
+  predicted = model.predict(start[-l:].reshape(1, l, 1))      # .predictに対しては、shape(1,25,1)などの3次元配列を渡さないといけないかも。？
+  # → predicted:  [[0.332343・・・]]  (1行1列)
+  # 今度は予測した値を自分自身に追加して、繰り返すことで未来のデータを生成。
+  start = np.append(start, predicted)                         # np.append(第一,第二) 第一の配列に第二を追加。破壊的ではない。
+
+
+pred_y = np.append(y, start[l:])
+ 
+plt.xlim(-10, 1010)
+x_ = np.arange(200, 1000)
 plt.plot(x, y, color='blue', label='raw_data')
-plt.plot(x[l:], pred, color='red', label='pred')
-plt.xlabel('x')
-plt.legend(loc='lower left')  # 図のラベルの位置を指定。
+plt.plot(x_, start[l:], color='red', label='predicted')
+plt.legend(loc='upper right', ncol=2)               # ncol: 凡例の列数を指定。
+plt.ylim(-1.5, 1.5)
 
-plt.tight_layout()            #グラフの重なりを解消。
-plt.show()
-
+# plt.show()
 
 
 
+# 系列データの長さを変えてみる。
+
+"""
+Lはリストで、例えば系列データの長さをl=1,2,3と実験したい場合は
+L=[1, 2, 3]としてLを受け渡す。widthとheightはsubplotをするときに、
+plt.subplot(width, height, 番号)で使用する。以下のプログラムでは、
+1つの学習結果について、2つのグラフを出力するため、表示する
+グラフの数は学習したモデルの数の倍になる。ちなみに、以下の関数
+では、毎回modelを使用しているため、グラフを表示することのみに
+使用した後、残らない。
+"""
+def rnn_test(L, width, height, n_hidden=200):
+  num_neurons = 1
+  plt.figure(figsize=(20, 20))
+  for i, l in enumerate(L):
+    (data, target) = make_dataset(y, l)
+    data = np.array(data).reshape(-1, l, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, l, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation('linear'))
+    optimizer = Adam(lr = 0.001)
+    model.compile(loss="mean_squared_error", optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(data, target, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+     
+    pred = model.predict(data)
+     
+    start = data[-1].reshape(1, l)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-l:].reshape(1, l, 1))
+      start = np.append(start, predicted)
+     
+    pred_y = np.append(y, start[l:])
+     
+
+
+    # 学習データの再現結果。
+
+    plt.subplot(width, height, 2*i+1)
+    plt.title("l={}".format(l))                 # 図のタイトルを設定。 l=1, l=2,のように変化。
+    plt.xlim(-10, 210)
+    plt.plot(x[l:], pred, color='red')
+    plt.xlabel('x')
+    plt.ylabel('pred')
 
 
 
-
-
-
-# start = data[-1].reshape(1, l)[0]
+    # 未来予測の結果
+     
+    plt.subplot(width, height, 2*i+2)
+    plt.xlim(-10, 1010)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[l:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+     
+  plt.show()
  
-# for i in range(800):
-#   predicted = model.predict(start[-l:].reshape(1, l, 1))
-#   start = np.append(start, predicted)
- 
-# pred_y = np.append(y, start[l:])
- 
-# plt.xlim(-10, 1010)
-# x_ = np.arange(200, 1000)
-# plt.plot(x, y, color='blue', label='sin+noise')
-# plt.plot(x_, start[l:], color='red', label='predicted')
-# plt.legend(loc='upper right', ncol=2)
-# plt.ylim(-1.5, 1.5)
-
-# # plt.show()
-# """
-# Lはリストで、例えば系列データの長さをl=1,2,3と実験したい場合は
-# L=[1, 2, 3]としてLを受け渡す。widthとheightはsubplotをするときに、
-# plt.subplot(width, height, 番号)で使用する。以下のプログラムでは、
-# 1つの学習結果について、2つのグラフを出力するため、表示する
-# グラフの数は学習したモデルの数の倍になる。ちなみに、以下の関数
-# では、毎回modelを使用しているため、グラフを表示することのみに
-# 使用した後、残らない。
-# """
-# def rnn_test(L, width, height, n_hidden=200):
-#   num_neurons = 1
-#   plt.figure(figsize=(20, 20))
-#   for i, l in enumerate(L):
-#     (data, target) = make_dataset(y, l)
-#     data = np.array(data).reshape(-1, l, 1)
-     
-#     model = Sequential()
-#     model.add(SimpleRNN(n_hidden, batch_input_shape=(None, l, num_neurons), return_sequences=False))
-#     model.add(Dense(num_neurons))
-#     model.add(Activation('linear'))
-#     optimizer = Adam(lr = 0.001)
-#     model.compile(loss="mean_squared_error", optimizer=optimizer)
-#     early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
-#     model.fit(data, target, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
-     
-#     pred = model.predict(data)
-     
-#     start = data[-1].reshape(1, l)[0]
-#     for _ in range(800):
-#       predicted = model.predict(start[-l:].reshape(1, l, 1))
-#       start = np.append(start, predicted)
-     
-#     pred_y = np.append(y, start[l:])
-     
-#     plt.subplot(width, height, 2*i+1)
-#     plt.title("l={}".format(l))
-#     plt.xlim(-10, 210)
-#     plt.plot(x[l:], pred, color='red')
-#     plt.xlabel('x')
-#     plt.ylabel('pred')
-     
-#     plt.subplot(width, height, 2*i+2)
-#     plt.xlim(-10, 1010)
-#     x_ = np.arange(200, 1000)
-#     plt.plot(x, y, color='blue', label='sin+noise')
-#     plt.plot(x_, start[l:], color='red', label='predicted')
-#     plt.legend(loc='upper right', ncol=2)
-#     plt.ylim(-1.5, 1.5)
-     
-#   plt.show()
- 
-# L=[1, 2, 4, 8, 16, 32, 64, 128]
-# rnn_test(L, width=4, height=4)
+L=[1, 2, 4, 8, 16, 32, 64, 128]
+rnn_test(L, width=4, height=4)
