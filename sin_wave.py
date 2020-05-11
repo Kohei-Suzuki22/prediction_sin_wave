@@ -5,8 +5,13 @@
 ## 系列データ: 学習データをモデルに入力するフォーマットに変換したもの。
 
 
+## 振幅 1.0
+## ノイズ-0.1~0.1
+
+
+
 import numpy as np
-import pandas  as pd
+# import pandas  as pd
 import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers.core import Dense, Activation
@@ -25,20 +30,24 @@ np.random.seed(0)       # 乱数の固定
 ## ノイズ-0.1~0.1
 
 def make_sin(x, noise = 0, T = 100):  #(x:x軸の大きさ, amp:ノイズの規模を定めるもの, T: 周期)
+  # # xはnp.arrayで渡すので、xのサイズと同じだけyが生成される。
   return np.sin(2*np.pi*x / T) + noise    # SIN(2πx / T)
- 
+
 def noise(amp):
   return amp * np.random.randint(-10, 10, len(x)) # -10~10の間の整数を xと同じ長さだけ生成。
-
-
-x = np.arange(200)
-noise = noise(0.01)        # list[0,1,2,3,・・・,199]
-y = make_sin(x, noise)     # sin波の作成.
-
 
 def show_sin_wave(x,y):   # xとyはそれぞれ配列。サイズを揃える。
   plt.plot(x,y)
   plt.show()
+
+
+
+
+x = np.arange(200)         # [0,1,2,3,・・・199]
+noise = noise(0.01)        # [-2,-4,-8,8,9]     (ランダムな要素)
+y = make_sin(x, noise)     # sin波の作成.
+
+
 
 # show_sin_wave(x,y)
 
@@ -46,25 +55,25 @@ def show_sin_wave(x,y):   # xとyはそれぞれ配列。サイズを揃える�
 
 
 
-l = 100      # 過去のデータを考慮する数。
+affect_length = 32      # 過去のデータを考慮する数。出力へ影響を与えることが出来る範囲を指定。
 
 # y[i-25:i]をモデルに入力し、y[i]を学習させる。
-def make_dataset(y, l):
-  data = []
-  target = []
-  for i in range(len(y)-l):
-    data.append(y[i:i+l])     # data = [[0,1,・・,24],[1,2,・・,25],[2,3,・・,26]]
-    target.append(y[i + l])   # target = [25,26,27,・・・・]
-  return(data, target)
- 
+def make_dataset(y, affect_length):
+  factors = np.array([])
+  answers = np.array([])
+  for i in range(len(y)-affect_length):
+    factors = np.append(factors,y[i:i+affect_length])       # factors = [[0,1,・・,24],[1,2,・・,25],[2,3,・・,26]]
+    answers = np.append(answers,y[i+affect_length])         # answers = [25,26,27,・・・・]
+  return(factors, answers)
 
-(data, target) = make_dataset(y, l)   # data,targetはそれぞれ numpy.array ではなく list形式であることに注意。
 
-# print(np.array(data).shape):    (175,25)
+(factors, answers) = make_dataset(y, affect_length)   # factors,answersはそれぞれ numpy.array ではなく list形式であることに注意。
 
-data = np.array(data).reshape(-1, l, 1) # -1は他の次元の指定より適切なサイズを決定してくれる。
-# dataの変換: [[0,1,2,・・・,24],[1,2,・・,25],・・] → [ [ [0],[1],[2],・・[24] ] , [ [1],[2],[3],・・,[25] ] ]
-# print(data.shape):  (175,25,1)
+# print(np.array(factors).shape):    (175,25)
+
+factors = factors.reshape(-1,affect_length,1)           # -1は他の次元の指定より適切なサイズを決定してくれる。
+# factorsの変換: [[0,1,2,・・・,24],[1,2,・・,25],・・] → [ [ [0],[1],[2],・・[24] ] , [ [1],[2],[3],・・,[25] ] ]
+# print(factors.shape):  (175,25,1)
 
 
 
@@ -93,7 +102,7 @@ model = Sequential()
 
 ## batch_input_shape: (バッチ数,学習データのステップ数、説明変数の数)を多プルで指定。
 ## return_sequences: Falseの場合は、最後の時刻のみの出力を得る。
-model.add(SimpleRNN(n_hidden, batch_input_shape=(None, l, num_neurons), return_sequences=False))
+model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
 
 
 
@@ -144,17 +153,17 @@ early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
 
 
 ## .fit: 学習を実行。
-## 学習データ: data
-## 正解データ(教師データ): target
+## 学習データ: factors
+## 正解データ(教師データ): answers
 ## batch_size: 学習データを小分けにする。 「過学習」を防ぐ。
 ## validation_split:  指定した割合を指定。(ex, 0.1 → 最後の10%が検証のために利用される)0~1の間の少数で指定。
 ## callbacks=[]:  訓練中に適応される関数たちを登録。
-model.fit(data, target, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+model.fit(factors, answers, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
 
 
 
 # 本番データを入力して予測させる。
-pred = model.predict(data)
+pred = model.predict(factors)
 
 # print(pred)     # 学習結果を見る。
 
@@ -192,25 +201,26 @@ pred = model.predict(data)
 
 # 今まで学習させてきた最後の要素からスタート。
 
-start = data[-1].reshape(1, l)[0]                   # [175,176,・・・・,200]  (25個の要素を持つnp.array)
+start = factors[-1].reshape(1, affect_length)[0]                   # [175,176,・・・・,200]  (25個の要素を持つnp.array)
 
 
 
 # print(model.predict(start[-l:].reshape(1,l,1)))
 
 for _ in range(800):
-  predicted = model.predict(start[-l:].reshape(1, l, 1))      # .predictに対しては、shape(1,25,1)などの3次元配列を渡さないといけないかも。？
+  predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))      # .predictに対しては、shape(1,25,1)などの3次元配列を渡さないといけないかも。？
   # → predicted:  [[0.332343・・・]]  (1行1列)
   # 今度は予測した値を自分自身に追加して、繰り返すことで未来のデータを生成。
   start = np.append(start, predicted)                         # np.append(第一,第二) 第一の配列に第二を追加。破壊的ではない。
 
 
-pred_y = np.append(y, start[l:])
- 
-plt.xlim(-10, 1010)
+pred_y = np.append(y, start[affect_length:])
+
+plt.xlim(-10, 410)
+plt.title("affect_length={}".format(affect_length))
 x_ = np.arange(200, 1000)
 plt.plot(x, y, color='blue', label='raw_data')
-plt.plot(x_, start[l:], color='red', label='predicted')
+plt.plot(x_, start[affect_length:], color='red', label='predicted')
 plt.legend(loc='upper right', ncol=2)               # ncol: 凡例の列数を指定。
 plt.ylim(-1.5, 1.5)
 
@@ -220,64 +230,60 @@ plt.ylim(-1.5, 1.5)
 
 # 系列データの長さを変えてみる。
 
-"""
-Lはリストで、例えば系列データの長さをl=1,2,3と実験したい場合は
-L=[1, 2, 3]としてLを受け渡す。widthとheightはsubplotをするときに、
-plt.subplot(width, height, 番号)で使用する。以下のプログラムでは、
-1つの学習結果について、2つのグラフを出力するため、表示する
-グラフの数は学習したモデルの数の倍になる。ちなみに、以下の関数
-では、毎回modelを使用しているため、グラフを表示することのみに
-使用した後、残らない。
-"""
-def rnn_test(L, width, height, n_hidden=200):
+
+# affect_length をいろいろ試してみる。
+
+
+def rnn_test(affect_length, width, height, n_hidden=200):
   num_neurons = 1
   plt.figure(figsize=(20, 20))
-  for i, l in enumerate(L):
-    (data, target) = make_dataset(y, l)
-    data = np.array(data).reshape(-1, l, 1)
+  for i, al in enumerate(affect_length):
+    (factors, answers) = make_dataset(y, al)
+    factors = np.array(factors).reshape(-1, al, 1)
 
     model = Sequential()
-    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, l, num_neurons), return_sequences=False))
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, al, num_neurons), return_sequences=False))
     model.add(Dense(num_neurons))
     model.add(Activation('linear'))
     optimizer = Adam(lr = 0.001)
     model.compile(loss="mean_squared_error", optimizer=optimizer)
     early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
-    model.fit(data, target, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
-     
-    pred = model.predict(data)
-     
-    start = data[-1].reshape(1, l)[0]
+    model.fit(factors, answers, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, al)[0]
     for _ in range(800):
-      predicted = model.predict(start[-l:].reshape(1, l, 1))
+      predicted = model.predict(start[-al:].reshape(1, al, 1))
       start = np.append(start, predicted)
-     
-    pred_y = np.append(y, start[l:])
-     
+
+    pred_y = np.append(y, start[al:])
+
 
 
     # 学習データの再現結果。
 
-    plt.subplot(width, height, 2*i+1)
-    plt.title("l={}".format(l))                 # 図のタイトルを設定。 l=1, l=2,のように変化。
-    plt.xlim(-10, 210)
-    plt.plot(x[l:], pred, color='red')
-    plt.xlabel('x')
-    plt.ylabel('pred')
+    # plt.subplot(width, height, 2*i+1)
+    # plt.title("l={}".format(al))                 # 図のタイトルを設定。 l=1, l=2,のように変化。
+    # plt.xlim(-10, 210)
+    # plt.plot(x[al:], pred, color='red')
+    # plt.xlabel('x')
+    # plt.ylabel('pred')
 
 
 
     # 未来予測の結果
-     
-    plt.subplot(width, height, 2*i+2)
-    plt.xlim(-10, 1010)
+
+    plt.subplot(width, height, i+1)
+    plt.title("affect_length={}".format(al))
+    plt.xlim(-10, 610)
     x_ = np.arange(200, 1000)
     plt.plot(x, y, color='blue', label='raw_data')
-    plt.plot(x_, start[l:], color='red', label='predicted')
+    plt.plot(x_, start[al:], color='red', label='predicted')
     plt.legend(loc='upper right', ncol=2)
     plt.ylim(-1.5, 1.5)
-     
+
   plt.show()
- 
-L=[1, 2, 4, 8, 16, 32, 64, 128]
-rnn_test(L, width=4, height=4)
+
+Affect_Length=[1, 2, 4, 8, 16, 32, 64, 128]
+rnn_test(Affect_Length, width=2, height=4)
