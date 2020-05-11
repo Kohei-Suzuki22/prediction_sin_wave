@@ -10,6 +10,7 @@
 
 
 
+
 import numpy as np
 # import pandas  as pd
 import matplotlib.pyplot as plt
@@ -55,7 +56,7 @@ y = make_sin(x, noise)     # sin波の作成.
 
 
 
-affect_length = 32      # 過去のデータを考慮する数。出力へ影響を与えることが出来る範囲を指定。
+affect_length = 64      # 過去のデータを考慮する数。出力へ影響を与えることが出来る範囲を指定。
 
 # y[i-25:i]をモデルに入力し、y[i]を学習させる。
 def make_dataset(y, affect_length):
@@ -103,6 +104,10 @@ model = Sequential()
 ## batch_input_shape: (バッチ数,学習データのステップ数、説明変数の数)を多プルで指定。
 ## return_sequences: Falseの場合は、最後の時刻のみの出力を得る。
 model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+
+
+
+
 
 
 
@@ -180,13 +185,13 @@ pred = model.predict(factors)
 
 # plt.subplot(1, 3, 2)
 # plt.xlim(-10, 210)            # x軸の表示範囲。
-# plt.plot(x[l:], pred, color='red')
+# plt.plot(x[affect_length:], pred, color='red')
 # plt.xlabel('x')
 # plt.ylabel('pred')
 
 # plt.subplot(1, 3, 3)
 # plt.plot(x, y, color='blue', label='raw_data')
-# plt.plot(x[l:], pred, color='red', label='pred')
+# plt.plot(x[affect_length:], pred, color='red', label='pred')
 # plt.xlabel('x')
 # plt.legend(loc='lower left')  # 図のラベルの位置を指定。
 
@@ -205,7 +210,7 @@ start = factors[-1].reshape(1, affect_length)[0]                   # [175,176,�
 
 
 
-# print(model.predict(start[-l:].reshape(1,l,1)))
+# print(model.predict(start[-affect_length:].reshape(1,affect_length,1)))
 
 for _ in range(800):
   predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))      # .predictに対しては、shape(1,25,1)などの3次元配列を渡さないといけないかも。？
@@ -264,7 +269,7 @@ def rnn_test(affect_length, width, height, n_hidden=200):
     # 学習データの再現結果。
 
     # plt.subplot(width, height, 2*i+1)
-    # plt.title("l={}".format(al))                 # 図のタイトルを設定。 l=1, l=2,のように変化。
+    # plt.title("affect_length={}".format(al))                 # 図のタイトルを設定。 l=1, l=2,のように変化。
     # plt.xlim(-10, 210)
     # plt.plot(x[al:], pred, color='red')
     # plt.xlabel('x')
