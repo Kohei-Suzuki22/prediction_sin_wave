@@ -57,6 +57,7 @@ y = make_sin(x, noise)     # sin波の作成.
 
 
 affect_length = 64      # 過去のデータを考慮する数。出力へ影響を与えることが出来る範囲を指定。
+# ↑ 64の場合は、factors = [[0,1,・・,63],[1,2,・・,64]・・] → answers = [64,65] のように、 0~63の64要素で、値64を学習させる。
 
 # y[i-25:i]をモデルに入力し、y[i]を学習させる。
 def make_dataset(y, affect_length):
@@ -87,6 +88,7 @@ factors = factors.reshape(-1,affect_length,1)           # -1は他の次元の�
 
 ## 活性化関数: linear
 ## 誤差関数(損失関数):  平均二乗誤差
+## 学習方法:   勾配降下法
 ## 学習率(lr): 0.001
 
 n_in = 1
