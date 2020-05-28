@@ -221,27 +221,25 @@ for _ in range(800):
   start = np.append(start, predicted)                         # np.append(第一,第二) 第一の配列に第二を追加。破壊的ではない。
 
 
-pred_y = np.append(y, start[affect_length:])
+# pred_y = np.append(y, start[affect_length:])
 
-plt.xlim(-10, 410)
-plt.title("affect_length={}".format(affect_length))
-x_ = np.arange(200, 1000)
-plt.plot(x, y, color='blue', label='raw_data')
-plt.plot(x_, start[affect_length:], color='red', label='predicted')
-plt.legend(loc='upper right', ncol=2)               # ncol: 凡例の列数を指定。
-plt.ylim(-1.5, 1.5)
+# plt.xlim(-10, 410)
+# plt.title("affect_length={}".format(affect_length))
+# x_ = np.arange(200, 1000)
+# plt.plot(x, y, color='blue', label='raw_data')
+# plt.plot(x_, start[affect_length:], color='red', label='predicted')
+# plt.legend(loc='upper right', ncol=2)               # ncol: 凡例の列数を指定。
+# plt.ylim(-1.5, 1.5)
 
 # plt.show()
 
 
 
 # 系列データの長さを変えてみる。
-
-
 # affect_length をいろいろ試してみる。
 
 
-def rnn_test(affect_length, width, height, n_hidden=200):
+def rnn_test_per_affect_length(affect_length, width, height, n_hidden=200):
   num_neurons = 1
   plt.figure(figsize=(20, 20))
   for i, al in enumerate(affect_length):
@@ -293,4 +291,317 @@ def rnn_test(affect_length, width, height, n_hidden=200):
   plt.show()
 
 Affect_Length=[1, 2, 4, 8, 16, 32, 64, 128]
-rnn_test(Affect_Length, width=2, height=4)
+# rnn_test_per_affect_length(Affect_Length, width=2, height=4)
+
+
+def rnn_test_per_learning_rate(learning_rate, width, height, n_hidden=200):
+  num_neurons = 1
+  affect_length = 64
+  plt.figure(figsize=(20, 20))
+  for i, lr in enumerate(learning_rate):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation('linear'))
+    optimizer = Adam(lr = lr)
+    model.compile(loss="mean_squared_error", optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(factors, answers, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, affect_length)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+      start = np.append(start, predicted)
+
+    pred_y = np.append(y, start[affect_length:])
+
+
+    plt.subplot(width, height, i+1)
+    plt.title("learning_rate={}".format(lr))
+    plt.xlim(-10, 610)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[affect_length:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+learning_rate=[0.1,0.01,0.001,0.0001]
+# rnn_test_per_learning_rate(learning_rate, width=2, height=4)
+
+def rnn_test_per_n_hidden(n_hidden,width, height):
+  num_neurons = 1
+  affect_length = 64
+  learning_rate = 0.001
+  plt.figure(figsize=(20, 20))
+  for i, n in enumerate(n_hidden):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation('linear'))
+    optimizer = Adam(lr = learning_rate)
+    model.compile(loss="mean_squared_error", optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(factors, answers, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, affect_length)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+      start = np.append(start, predicted)
+
+    pred_y = np.append(y, start[affect_length:])
+
+
+    plt.subplot(width, height, i+1)
+    plt.title("n_hidden={}".format(n))
+    plt.xlim(-10, 610)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[affect_length:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+n_hidden=[1,20,100,200,500,1000]
+# rnn_test_per_n_hidden(n_hidden,width=2, height=4)
+
+
+def rnn_test_per_activation(activation,width, height):
+  num_neurons = 1
+  affect_length = 64
+  learning_rate = 0.001
+  n_hidden = 200
+  plt.figure(figsize=(20, 20))
+  for i, a in enumerate(activation):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation(a))
+    optimizer = Adam(lr = learning_rate)
+    model.compile(loss="mean_squared_error", optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(factors, answers, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, affect_length)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+      start = np.append(start, predicted)
+
+    pred_y = np.append(y, start[affect_length:])
+
+
+    plt.subplot(width, height, i+1)
+    plt.title("activation={}".format(a))
+    plt.xlim(-10, 610)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[affect_length:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+activation=['linear','elu','selu','sigmoid','hard_sigmoid','softmax','softplus','softsign','tanh','relu']
+# rnn_test_per_activation(activation,width=2, height=5)
+
+def rnn_test_per_loss_func(loss_func,width, height):
+  num_neurons = 1
+  affect_length = 64
+  learning_rate = 0.001
+  n_hidden = 200
+  activation = 'linear'
+  plt.figure(figsize=(20, 20))
+  for i, loss in enumerate(loss_func):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation(activation))
+    optimizer = Adam(lr = learning_rate)
+    model.compile(loss=loss, optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(factors, answers, batch_size=300, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, affect_length)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+      start = np.append(start, predicted)
+
+    pred_y = np.append(y, start[affect_length:])
+
+
+    plt.subplot(width, height, i+1)
+    plt.title(loss)
+    plt.xlim(-10, 610)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[affect_length:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+loss_func = ['mean_squared_error','mean_absolute_error','mean_squared_logarithmic_error']
+# rnn_test_per_loss_func(loss_func,width=2, height=3)
+
+
+def rnn_test_per_batch(batch, width, height):
+  num_neurons = 1
+  affect_length = 64
+  learning_rate = 0.001
+  n_hidden = 200
+  activation = 'linear'
+  loss_func = 'mean_squared_error'
+  plt.figure(figsize=(20, 20))
+  for i, b in enumerate(batch):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation(activation))
+    optimizer = Adam(lr = learning_rate)
+    model.compile(loss=loss_func, optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(factors, answers, batch_size=b, epochs=100, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, affect_length)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+      start = np.append(start, predicted)
+
+    pred_y = np.append(y, start[affect_length:])
+
+
+    plt.subplot(width, height, i+1)
+    plt.title("batch={}".format(b))
+    plt.xlim(-10, 610)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[affect_length:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+batch = [10,20,30,40,50,100,120]
+rnn_test_per_batch(batch,width=2, height=5)
+
+
+
+def rnn_test_per_epoch(epochs, width, height):
+  num_neurons = 1
+  affect_length = 64
+  learning_rate = 0.001
+  n_hidden = 200
+  batch = 200
+  activation = 'linear'
+  loss_func = 'mean_squared_error'
+  plt.figure(figsize=(20, 20))
+  for i, epoch in enumerate(epochs):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation(activation))
+    optimizer = Adam(lr = learning_rate)
+    model.compile(loss=loss_func, optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+    model.fit(factors, answers, batch_size=batch, epochs=epoch, validation_split=0.1, callbacks=[early_stopping])
+
+    pred = model.predict(factors)
+
+    start = factors[-1].reshape(1, affect_length)[0]
+    for _ in range(800):
+      predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+      start = np.append(start, predicted)
+
+    pred_y = np.append(y, start[affect_length:])
+
+
+    plt.subplot(width, height, i+1)
+    plt.title("epochs={}".format(epoch))
+    plt.xlim(-10, 610)
+    x_ = np.arange(200, 1000)
+    plt.plot(x, y, color='blue', label='raw_data')
+    plt.plot(x_, start[affect_length:], color='red', label='predicted')
+    plt.legend(loc='upper right', ncol=2)
+    plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+epochs = [100,200,250,500,100]
+# rnn_test_per_epoch(epochs,width=2, height=5)
+
+
+
+def rnn_test_optimal():
+  num_neurons = 1
+  affect_length = 64
+  learning_rate = 0.001
+  n_hidden = 200
+  batch = 200
+  epochs = 100
+  activation = 'linear'
+  loss_func = 'mean_squared_error'
+  plt.figure(figsize=(20, 20))
+  (factors, answers) = make_dataset(y, affect_length)
+  factors = np.array(factors).reshape(-1, affect_length, 1)
+
+  model = Sequential()
+  model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+  model.add(Dense(num_neurons))
+  model.add(Activation(activation))
+  optimizer = Adam(lr = learning_rate)
+  model.compile(loss=loss_func, optimizer=optimizer)
+  early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=20)
+  model.fit(factors, answers, batch_size=batch, epochs=epochs, validation_split=0.1, callbacks=[early_stopping])
+
+  pred = model.predict(factors)
+
+  start = factors[-1].reshape(1, affect_length)[0]
+  for _ in range(800):
+    predicted = model.predict(start[-affect_length:].reshape(1, affect_length, 1))
+    start = np.append(start, predicted)
+
+  pred_y = np.append(y, start[affect_length:])
+
+
+  # plt.subplot(width, height, i+1)
+  plt.title("optimize")
+  plt.xlim(-10, 610)
+  x_ = np.arange(200, 1000)
+  plt.plot(x, y, color='blue', label='raw_data')
+  plt.plot(x_, start[affect_length:], color='red', label='predicted')
+  plt.legend(loc='upper right', ncol=2)
+  plt.ylim(-1.5, 1.5)
+
+  plt.show()
+
+# rnn_test_optimal()
